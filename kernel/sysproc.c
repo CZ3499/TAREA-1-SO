@@ -23,6 +23,15 @@ sys_getpid(void)
 }
 
 uint64
+sys_getppid(void)
+{
+  struct proc *p = myproc();
+  if (p == 0 || p->parent == 0)
+    return -1;
+  return p->parent->pid;
+}
+
+uint64
 sys_fork(void)
 {
   return kfork();
@@ -52,9 +61,6 @@ sys_sbrk(void)
       return -1;
     }
   } else {
-    // Lazily allocate memory for this process: increase its memory
-    // size but don't allocate memory. If the processes uses the
-    // memory, vmfault() will allocate it.
     if(addr + n < addr)
       return -1;
     myproc()->sz += n;
@@ -69,8 +75,8 @@ sys_pause(void)
   uint ticks0;
 
   argint(0, &n);
-  if(n < 0)
-    n = 0;
+  if(n < 0) n = 0;
+
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
@@ -88,18 +94,14 @@ uint64
 sys_kill(void)
 {
   int pid;
-
   argint(0, &pid);
   return kkill(pid);
 }
 
-// return how many clock tick interrupts have occurred
-// since start.
 uint64
 sys_uptime(void)
 {
   uint xticks;
-
   acquire(&tickslock);
   xticks = ticks;
   release(&tickslock);
