@@ -41,11 +41,11 @@ Durante la implementación de la parte II, se encontró un error de sintaxis en 
 
 A continuación, se muestra una captura del error encontrado:
 
-![Error de sintaxis en la compilación](./imagenes/error_pt2.png)
+![Error de sintaxis en la compilación](./assets/error_pt2.png)
 
 Una vez corregido, el programa de prueba `testancestor` se ejecutó exitosamente, validando todos los casos de uso, incluyendo la búsqueda en múltiples niveles y el manejo de errores:
 
-![Ejecución exitosa de testancestor](./imagenes/pt2_funcionando.png)
+![Ejecución exitosa de testancestor](./assets/pt2_funcionando.png)
 
 ---
 ## Conclusiones
