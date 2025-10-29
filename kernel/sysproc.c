@@ -105,3 +105,23 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_settickets(void)
+{
+  int n; // Number of tickets to assign
+
+  // Get the first integer argument (n) from the syscall
+  if(argint(0, &n) < 0)
+    return -1; // Error reading argument
+
+  // Apply robustness rule: minimum 1 ticket
+  if (n < 1) {
+    n = 1;
+  }
+
+  // Assign tickets to the current process
+  myproc()->tickets = n;
+
+  return 0; // Success
+}

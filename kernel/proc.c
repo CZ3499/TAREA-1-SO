@@ -26,6 +26,18 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+static uint random_seed = 1;
+
+// Returns a number in [0, max-1]
+
+static uint
+random(uint max)
+{
+  // Use system ticks to add more "randomness"
+  random_seed = (random_seed * 1103515245 + 12345 + ticks) & 0x7FFFFFFF;
+  return random_seed % max;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -124,6 +136,9 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+
+  p->tickets = 100;     // Default number of tickets
+  p->cpu_slices = 0;    // Start with zero slices
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -418,45 +433,93 @@ kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+// Modified for Lottery Scheduling
 void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
+  
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
+    // Enable interrupts on this processor.
+    // This is crucial so that external events (like I/O or
+    // the timer) can wake up processes.
     intr_on();
-    intr_off();
 
-    int found = 0;
+    // Calculate total tickets of all RUNNABLE processes
+    int total_tickets = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+        // Ensure at least 1 ticket per process
+        if(p->tickets < 1)
+          p->tickets = 1;
+        
+        total_tickets += p->tickets;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // If there are no RUNNABLE processes, wait for an interrupt
+    if(total_tickets == 0) {
+      // No processes to run.
+      // Wait for an interrupt (e.g. I/O, timer)
+      // to wake up a process.
+      // 'wfi' (Wait For Interrupt) puts the CPU in low-power mode.
       asm volatile("wfi");
+      
+      // Go back to the beginning of the scheduler loop
+      continue;
     }
-  }
+
+    // Generate a random winning ticket
+    // random() returns a number in [0, total_tickets - 1]
+    int winner_ticket = random(total_tickets) + 1;
+    int ticket_accumulator = 0;
+
+    // Find the winning process
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      
+      if(p->state != RUNNABLE) {
+        release(&p->lock);
+        continue;
+      }
+      
+      // Accumulate tickets
+      ticket_accumulator += p->tickets;
+      
+      // Check if this process holds the winning ticket
+      if (ticket_accumulator >= winner_ticket) {
+        // Winner found!
+
+        // Accounting
+        p->cpu_slices++;
+        
+        // Run the winning process
+        p->state = RUNNING; [cite: 26]
+        c->proc = p;
+        
+        // Change the context to the process
+        swtch(&c->scheduler, &p->context);
+
+        // The process stopped (e.g. yield(), sleep(), exit())
+        // and returned control to the scheduler.
+        c->proc = 0;
+
+        // Release the lock and exit the 'for(p...)' loop
+        release(&p->lock);
+
+        // Break the 'for(p...)' loop to start a new lottery
+        // from the 'for(;;)'
+        break;
+      }
+      
+      // It is not the winning process, release the lock
+      release(&p->lock);
+    } // End of 2nd loop (Find the winning process)
+  } // End of 'for(;;)' loop
 }
 
 // Switch to scheduler.  Must hold only p->lock
