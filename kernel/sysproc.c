@@ -111,9 +111,7 @@ sys_settickets(void)
 {
   int n; // Number of tickets to assign
 
-  // Get the first integer argument (n) from the syscall
-  if(argint(0, &n) < 0)
-    return -1; // Error reading argument
+  argint(0, &n);
 
   // Apply robustness rule: minimum 1 ticket
   if (n < 1) {

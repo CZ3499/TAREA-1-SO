@@ -367,6 +367,13 @@ kexit(int status)
   
   acquire(&p->lock);
 
+  if(p->pid > 2) { // Ignore init and system processes
+  printf("\n--- STATS PID %d ---\n", p->pid);
+  printf("Tickets: %d\n", p->tickets);
+  printf("CPU Slices: %d\n", p->cpu_slices);
+  printf("---------------------\n");
+  }
+
   p->xstate = status;
   p->state = ZOMBIE;
 
@@ -498,11 +505,11 @@ scheduler(void)
         p->cpu_slices++;
         
         // Run the winning process
-        p->state = RUNNING; [cite: 26]
+        p->state = RUNNING; 
         c->proc = p;
         
         // Change the context to the process
-        swtch(&c->scheduler, &p->context);
+        swtch(&c->context, &p->context);
 
         // The process stopped (e.g. yield(), sleep(), exit())
         // and returned control to the scheduler.

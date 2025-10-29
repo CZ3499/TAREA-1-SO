@@ -2,7 +2,7 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-// (TAREA 2) Número de procesos hijos a crear
+// Número de procesos hijos a crear
 #define N 10
 
 // Función simple de "trabajo" (busy-wait)
@@ -10,10 +10,8 @@
 void work()
 {
   long i;
-  // Un valor grande para asegurar que el proceso
-  // sea planificado múltiples veces.
-  for (i = 0; i < 200000000; i++) {
-     // Operación trivial
+  // Aumentamos el trabajo 10 veces (corregido el límite para evitar overflow)
+  for (i = 0; i < 2000000000; i++) { 
      asm volatile ("nop");
   }
 }
@@ -26,7 +24,7 @@ main(void)
 
   printf("Iniciando prueba de Lottery Scheduler con %d procesos...\n", N);
 
-  // (TAREA 2) 1. Crear N procesos 
+  // Crear N procesos 
   for (i = 0; i < N; i++) {
     pids[i] = fork();
     
@@ -36,9 +34,9 @@ main(void)
     }
 
     if (pids[i] == 0) {
-      // --- Código del Proceso Hijo ---
+      // Código del Proceso Hijo 
       
-      // (TAREA 2) 2. Asignar tickets distintos 
+      // Asignar tickets distintos 
       int tickets = 50 * (i + 1);
       
       // Llamada a la nueva system call
@@ -56,10 +54,10 @@ main(void)
       printf("[Hijo %d, PID %d] Trabajo terminado.\n", i, getpid());
       exit(0);
     }
-    // --- Fin del Código del Hijo ---
+    // fin del Código del Hijo
   }
 
-  // --- Código del Proceso Padre ---
+  // Código del Proceso Padre
   printf("Padre [PID %d] esperando a los %d hijos...\n", getpid(), N);
   
   // Esperar a que todos los hijos terminen
