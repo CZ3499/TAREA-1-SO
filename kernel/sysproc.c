@@ -105,3 +105,39 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_mrdprotect(void)
+{
+  uint64 addr;
+  int len;
+ 
+  // argaddr and argint retrieve syscall arguments
+  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0)
+    return -1;
+
+  // Calls uvm_protect disabling read (0) 
+  // sfence_vma() is necessary to clear the TLB and make the change immediate
+  if(uvm_protect(addr, len, 0) < 0)
+    return -1;
+    
+  sfence_vma(); // Update translation cache
+  return 0;
+}
+
+uint64
+sys_munrdprotect(void)
+{
+  uint64 addr;
+  int len;
+
+  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0)
+    return -1;
+
+  // Calls uvm_protect enabling read (1) 
+  if(uvm_protect(addr, len, 1) < 0)
+    return -1;
+
+  sfence_vma();
+  return 0;
+}

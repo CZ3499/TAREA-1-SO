@@ -287,6 +287,47 @@ uvmfree(pagetable_t pagetable, uint64 sz)
   freewalk(pagetable);
 }
 
+int
+uvm_protect(uint64 va, uint64 len, int enable_read)
+{
+  pte_t *pte;
+  uint64 a, last;
+  pagetable_t pagetable = myproc()->pagetable;
+
+  // Initial validations
+  if(len <= 0) 
+    return -1;
+  if(va % PGSIZE != 0) // Must be page-aligned
+    return -1;
+  
+  // Calculate the range
+  a = va;
+  last = PGROUNDDOWN(va + len - 1);
+
+  for(;;){
+    // 2. Find the PTE 
+    // '0' indicates NOT to create new pages if they don't exist.
+    if((pte = walk(pagetable, a, 0)) == 0)
+      return -1; // Error: page not mapped
+
+    // 3. Verify validity and user access bits
+    if((*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
+      return -1;
+
+    // 4. Modify PTE_R bit
+    if(enable_read)
+      *pte |= PTE_R;       // Enable read
+    else
+      *pte &= ~PTE_R;      // Disable read
+    // Loop exit condition
+    if(a == last)
+      break;
+    a += PGSIZE;
+  }
+
+  return 0;
+}
+
 // Given a parent process's page table, copy
 // its memory into a child's page table.
 // Copies both the page table and the
