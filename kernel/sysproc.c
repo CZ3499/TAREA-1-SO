@@ -111,17 +111,16 @@ sys_mrdprotect(void)
 {
   uint64 addr;
   int len;
- 
-  // argaddr and argint retrieve syscall arguments
-  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0)
-    return -1;
 
-  // Calls uvm_protect disabling read (0) 
-  // sfence_vma() is necessary to clear the TLB and make the change immediate
+  // Retrieve syscall arguments directly
+  argaddr(0, &addr);
+  argint(1, &len);
+
+  // Call protection logic (0 = remove read permission)
   if(uvm_protect(addr, len, 0) < 0)
     return -1;
     
-  sfence_vma(); // Update translation cache
+  sfence_vma(); // Flush TLB/cache
   return 0;
 }
 
@@ -131,13 +130,14 @@ sys_munrdprotect(void)
   uint64 addr;
   int len;
 
-  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0)
-    return -1;
+  // Retrieve syscall arguments directly
+  argaddr(0, &addr);
+  argint(1, &len);
 
-  // Calls uvm_protect enabling read (1) 
+  // Call protection logic (1 = enable read permission)
   if(uvm_protect(addr, len, 1) < 0)
     return -1;
 
-  sfence_vma();
+  sfence_vma(); // Flush TLB/cache
   return 0;
 }
