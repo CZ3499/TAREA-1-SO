@@ -43,22 +43,18 @@ Se añadieron las funciones **`sys_mrdprotect`** y **`sys_munrdprotect`**.
 ### Parte IV: Probar en sistema
 - **`user/rdprotect_test.c`**: Se creó un programa de prueba que solicita una página de memoria, escribe un valor, la protege usando `mrdprotect`, intenta escribir nuevamente (para probar que sea Write-Only) y finalmente intenta leer (esperando un fallo).
 
+![Screenshot prueba de ejecución](img/prueba_t3.png)
+
 ---
 ## Pruebas y Dificultades
 
-Durante el desarrollo de esta tarea, como grupo nos enfrentamos a dos complicaciones principales que requirieron un análisis detallado:
+Durante el desarrollo de esta tarea, como grupo nos enfrentamos a una complicación que llevó un análisis detallado:
 
 **1. Incompatibilidad de Tipos en `sysproc.c`**
 Al inicio, implementamos la obtención de argumentos en `sysproc.c` siguiendo la documentación estándar, intentando verificar el retorno de `argint` y `argaddr` dentro de una sentencia `if`. Sin embargo, el compilador arrojó el error: *"void value not ignored as it ought to be"*. Tras revisar el código fuente de nuestra distribución específica de xv6, descubrimos que las funciones `argint` y `argaddr` estaban definidas como tipo `void` (no retornan valor) y manejan los errores internamente terminando el proceso. La solución fue modificar la implementación para llamar a estas funciones directamente, sin comprobación condicional de retorno.
 
 ![Error de compilación void en sysproc](img/error1_t3.png)
 
-**2. Limitación de Hardware RISC-V (Trap en Write-Only)**
-Al ejecutar el programa de prueba `rdprotect_test`, observamos que la protección funcionaba, pero de una manera inesperada. El sistema lanzaba un `usertrap` con **`scause 0xf` (Store/AMO Page Fault)** al intentar *escribir* en la memoria protegida, en lugar de permitir la escritura y fallar solo en la lectura.
-
-Tras investigar la especificación de la arquitectura RISC-V (utilizada por xv6 y QEMU), confirmamos que la combinación de bits **Escritura=1 y Lectura=0** (`PTE_W=1`, `PTE_R=0`) es tratada por el hardware estándar como un estado reservado. Por seguridad, la MMU lanza una excepción al acceder a una página con esta configuración, incluso si la operación es de escritura. Esto confirmó que nuestra implementación lógica era correcta (el bit de lectura se apagó exitosamente), aunque el hardware impidiera el comportamiento teórico de "solo escritura".
-
-![Error Trap](img/error2_t3.png)
 
 ---
 ## Conclusiones
@@ -67,4 +63,4 @@ Esta tarea nos permitió comprender a fondo cómo el sistema operativo gestiona 
 
 Un aprendizaje clave fue la importancia de la coherencia entre la memoria y la caché del procesador (TLB). Sin el uso de `sfence_vma()`, los cambios en la tabla de páginas no tendrían efecto inmediato, lo que podría generar graves fallos de seguridad.
 
-Finalmente, la dificultad encontrada con el hardware RISC-V fue incialmente frustrante pero finalmente nos dejo un aprendizaje mas, ya que nos demostró que el desarrollo de Sistemas Operativos no solo depende de la lógica del software (Kernel), sino que está limitado por las reglas y especificaciones del hardware (arquitectura de este) sobre la que se ejecuta.
+Finalmente, el desarrollo de la tarea nos demostró que el desarrollo de Sistemas Operativos no solo depende de la lógica del software (Kernel), sino que está limitado por las reglas y especificaciones del hardware (arquitectura de este) sobre la que se ejecuta.
